@@ -213,7 +213,7 @@ def main():
         st.session_state.z1 = z1
         st.session_state.z2 = z2
         st.session_state.z3 = z3
-        st.experimental_rerun()
+        st.rerun()  # 修正: experimental_rerun -> rerun
     
     # 生成ボタン
     if st.button("✨ 数字を生成"):

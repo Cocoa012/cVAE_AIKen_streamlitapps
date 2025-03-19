@@ -4,7 +4,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 import matplotlib.pyplot as plt
-from torch.nn import Linear
+import os
+import traceback
 
 # デバイス設定
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -157,17 +158,26 @@ def main():
     @st.cache_resource
     def load_model():
         model = CVAE(latent_dim=3, num_classes=10).to(device)
-        model.load_state_dict(torch.load("cvae.pth", map_location=device))
-        model.eval()
-        return model
+        try:
+            # ファイルの存在確認
+            if os.path.exists("cvae.pth"):
+                # モデルのロード - map_locationを指定して適切なデバイスにロード
+                state_dict = torch.load("cvae.pth", map_location=device)
+                model.load_state_dict(state_dict)
+                model.eval()
+                return model, True, None
+            else:
+                return model, False, "モデルファイルが見つかりません"
+        except Exception as e:
+            return model, False, str(e)
     
-    try:
-        model = load_model()
+    model, success, error_msg = load_model()
+    
+    if success:
         st.success("✅ モデルのロードに成功しました")
-    except Exception as e:
-        st.error(f"❌ モデルのロードに失敗しました: {e}")
+    else:
+        st.error(f"❌ モデルのロードに失敗しました: {error_msg}")
         st.info("モデルファイル 'cvae.pth' が同じディレクトリに存在するか確認してください")
-        return
     
     st.subheader("数字生成のパラメータ設定")
     
@@ -206,26 +216,30 @@ def main():
         # クラスラベルの作成
         label = torch.tensor([digit], dtype=torch.long).to(device)
         
-        # 画像生成
         with torch.no_grad():
-            x_gen = model.generate(z, label)
-        
-        # 画像の表示
-        fig, ax = plt.subplots(figsize=(5, 5))
-        ax.imshow(x_gen.squeeze().cpu().numpy(), cmap='gray_r')
-        ax.axis('off')
-        ax.set_title(f"生成された数字: {digit}", fontsize=16)
-        
-        # 黒背景のプロット設定
-        fig.patch.set_facecolor('#121212')
-        ax.set_facecolor('#121212')
-        ax.title.set_color('white')
-        
-        st.pyplot(fig)
-        
-        # 生成されたパラメータ情報の表示
-        st.subheader("生成パラメータ情報")
-        st.code(f"数字: {digit}\nz1: {z1:.4f}\nz2: {z2:.4f}\nz3: {z3:.4f}")
+            try:
+                # 画像生成
+                x_gen = model.generate(z, label)
+                
+                # 画像の表示
+                fig, ax = plt.subplots(figsize=(5, 5))
+                ax.imshow(x_gen.squeeze().cpu().numpy(), cmap='gray_r')
+                ax.axis('off')
+                ax.set_title(f"生成された数字: {digit}", fontsize=16)
+                
+                # 黒背景のプロット設定
+                fig.patch.set_facecolor('#121212')
+                ax.set_facecolor('#121212')
+                ax.title.set_color('white')
+                
+                st.pyplot(fig)
+                
+                # 生成されたパラメータ情報の表示
+                st.subheader("生成パラメータ情報")
+                st.code(f"数字: {digit}\nz1: {z1:.4f}\nz2: {z2:.4f}\nz3: {z3:.4f}")
+            except Exception as e:
+                st.error(f"画像生成中にエラーが発生しました: {e}")
+                st.code(traceback.format_exc())
     
     st.markdown("---")
     st.markdown("### 使い方")

@@ -162,8 +162,15 @@ def main():
             # ファイルの存在確認
             if os.path.exists("cvae.pth"):
                 # モデルのロード - map_locationを指定して適切なデバイスにロード
-                state_dict = torch.load("cvae.pth", map_location=device)
-                model.load_state_dict(state_dict)
+                # 新しいPyTorchバージョンでの互換性対応
+                try:
+                    state_dict = torch.load("cvae.pth", map_location=device)
+                    model.load_state_dict(state_dict)
+                except Exception as loading_error:
+                    # PyTorchバージョン差異によるロードエラーの場合、重みのみロードを試みる
+                    st.warning("標準ロード方法でエラーが発生しました。代替方法を試行します...")
+                    state_dict = torch.load("cvae.pth", map_location=device, weights_only=True)
+                    model.load_state_dict(state_dict)
                 model.eval()
                 return model, True, None
             else:
